@@ -1,7 +1,7 @@
 package api
 
 import (
-    "encoding/json"
+    //"encoding/json"
     "fmt"
     "net/http"
     // "github.com/gorilla/mux"
@@ -18,11 +18,7 @@ func BooksHandler(w http.ResponseWriter, r *http.Request) {
     if r.Method == "POST" {
         fmt.Println("AAA")
     } else {
-        jsonBody, err := json.Marshal(storage.GetBooks())
-        if err != nil {
-            http.Error(w, "Error converting results to json",
-            http.StatusInternalServerError)
-        } 
+        jsonBody, _ := storage.GetBooks()
         w.Write(jsonBody)
-    }    
+    }
 }
