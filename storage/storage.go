@@ -36,8 +36,12 @@ func GetBooksData() []Book {
 	return books
 }
 
-func SaveBookData(book Book) {
+func SaveNewBook(book Book) {
 	books := append(GetBooksData(), book)
+	SaveBookData(books)
+}
+
+func SaveBookData(books []Book) {
 	raw, err := json.Marshal(books)
 	if err != nil {
 		log.Println(err)

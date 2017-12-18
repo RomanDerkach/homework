@@ -25,6 +25,7 @@ func booksHandler(w http.ResponseWriter, r *http.Request) {
 		err := decoder.Decode(&newBook)
 		if err != nil {
 			log.Println(err)
+			return
 		}
 		if newBook.Title == "" {
 			log.Println("There is no title")
@@ -40,7 +41,7 @@ func booksHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		newBook.ID = uuid.NewV4().String()
 		fmt.Println(newBook)
-		storage.SaveBookData(newBook)
+		storage.SaveNewBook(newBook)
 	} else {
 		jsonBody := storage.GetDBData()
 		w.Write(jsonBody)
@@ -50,16 +51,35 @@ func booksHandler(w http.ResponseWriter, r *http.Request) {
 func booksHandlerByID(w http.ResponseWriter, r *http.Request) {
 	books := storage.GetBooksData()
 	result := storage.Book{}
-	fmt.Println(books[0].ID)
-	for _, book := range books {
-		if book.ID == path.Base(r.URL.Path) {
-			result = book
+	if r.Method == "GET" {
+		fmt.Println(books[0].ID)
+		for _, book := range books {
+			if book.ID == path.Base(r.URL.Path) {
+				result = book
+				break
+			}
+		}
+		jsonBody, err := json.Marshal(result)
+		if err != nil {
+			http.Error(w, "Error converting results to json",
+				http.StatusInternalServerError)
+			return
+		}
+		w.Write(jsonBody)
+	}
+	if r.Method == "DELETE" {
+		notfound := true
+		for i, book := range books {
+			if book.ID == path.Base(r.URL.Path) {
+				books = append(books[:i], books[i+1:]...)
+				storage.SaveBookData(books)
+				w.WriteHeader(http.StatusOK)
+				notfound = false
+				break
+			}
+		}
+		if notfound {
+			http.Error(w, "There is no book with such id", http.StatusNotFound)
 		}
 	}
-	jsonBody, err := json.Marshal(result)
-	if err != nil {
-		http.Error(w, "Error converting results to json",
-			http.StatusInternalServerError)
-	}
-	w.Write(jsonBody)
 }

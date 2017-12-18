@@ -28,16 +28,7 @@
         "Price": 999
     },
     {
-        "ID": "4a53a7fc-12d5-47d7-bb53-e0302a0089e7",
-        "Title": "Tom Soer",
-        "Ganres": [
-            "adventure"
-        ],
-        "Pages": 600,
-        "Price": 6.66
-    },
-    {
-        "ID": "57e1c003-3009-4a57-9c8f-bfd5ba3bef2e",
+        "ID": "fd7bca58-1004-4f7e-8cfd-57138bda947b",
         "Title": "Tom Soer",
         "Ganres": [
             "adventure"
