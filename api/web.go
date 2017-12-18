@@ -11,14 +11,6 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-type Book struct {
-	ID     string
-	Title  string
-	Ganres []string
-	Pages  int
-	Price  float64
-}
-
 func Server() {
 	//run server
 	http.HandleFunc("/books", booksHandler)
@@ -29,7 +21,7 @@ func Server() {
 func booksHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		decoder := json.NewDecoder(r.Body)
-		var newBook Book
+		var newBook storage.Book
 		err := decoder.Decode(&newBook)
 		if err != nil {
 			log.Println(err)
@@ -48,18 +40,16 @@ func booksHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		newBook.ID = uuid.NewV4().String()
 		fmt.Println(newBook)
-
+		storage.SaveBookData(newBook)
 	} else {
-		jsonBody := storage.GetBooksData()
+		jsonBody := storage.GetDBData()
 		w.Write(jsonBody)
 	}
 }
 
 func booksHandlerByID(w http.ResponseWriter, r *http.Request) {
-	data := storage.GetBooksData()
-	books := []Book{}
-	result := Book{}
-	json.Unmarshal(data, &books)
+	books := storage.GetBooksData()
+	result := storage.Book{}
 	fmt.Println(books[0].ID)
 	for _, book := range books {
 		if book.ID == path.Base(r.URL.Path) {
