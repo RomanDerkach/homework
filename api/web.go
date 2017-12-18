@@ -3,10 +3,12 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"path"
 	// "github.com/gorilla/mux"
 	"github.com/RomanDerkach/homework/storage"
+	"github.com/satori/go.uuid"
 )
 
 type Book struct {
@@ -18,21 +20,42 @@ type Book struct {
 }
 
 func Server() {
-	http.HandleFunc("/books", BooksHandler)
-	http.HandleFunc("/books/", BooksHandlerByID)
+	//run server
+	http.HandleFunc("/books", booksHandler)
+	http.HandleFunc("/books/", booksHandlerByID)
 	http.ListenAndServe(":8081", nil)
 }
 
-func BooksHandler(w http.ResponseWriter, r *http.Request) {
+func booksHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
-		fmt.Println("AAA")
+		decoder := json.NewDecoder(r.Body)
+		var newBook Book
+		err := decoder.Decode(&newBook)
+		if err != nil {
+			log.Println(err)
+		}
+		if newBook.Title == "" {
+			log.Println("There is no title")
+		}
+		if len(newBook.Ganres) == 0 {
+			log.Println("There is no ganres")
+		}
+		if newBook.Pages == 0 {
+			log.Println("There is no pages")
+		}
+		if newBook.Price == 0 {
+			log.Println("There is no price")
+		}
+		newBook.ID = uuid.NewV4().String()
+		fmt.Println(newBook)
+
 	} else {
 		jsonBody := storage.GetBooksData()
 		w.Write(jsonBody)
 	}
 }
 
-func BooksHandlerByID(w http.ResponseWriter, r *http.Request) {
+func booksHandlerByID(w http.ResponseWriter, r *http.Request) {
 	data := storage.GetBooksData()
 	books := []Book{}
 	result := Book{}

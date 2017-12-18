@@ -1,10 +1,10 @@
 package main
 
 import (
-    // "fmt"
-    "github.com/RomanDerkach/homework/api"
+	// "fmt"
+	"github.com/RomanDerkach/homework/api"
 )
 
 func main() {
-    api.Server()
+	api.Server()
 }
