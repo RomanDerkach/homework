@@ -9,11 +9,11 @@ import (
 const DB = "storage/Books.json"
 
 type Book struct {
-	ID     string
-	Title  string
-	Ganres []string
-	Pages  int
-	Price  float64
+	ID     string   `json:"id, omitempty"`
+	Title  string   `json:"title, omitempty"`
+	Ganres []string `json:"ganres, omitempty"`
+	Pages  int      `json:"pages, omitempty"`
+	Price  float64  `json:"price, omitempty"`
 }
 
 func GetDBData() []byte {
