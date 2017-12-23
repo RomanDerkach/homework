@@ -16,6 +16,10 @@ type Book struct {
 	Price  float64  `json:"price, omitempty"`
 }
 
+type BookFilter struct {
+	Title string `json:"title, omitempty"`
+}
+
 func GetDBData() []byte {
 	raw, err := ioutil.ReadFile(DB)
 	if err != nil {
