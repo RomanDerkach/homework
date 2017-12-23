@@ -41,8 +41,9 @@ func SaveNewBook(book Book) {
 	SaveBookData(books)
 }
 
+//SaveBookData saves all changes with books
 func SaveBookData(books []Book) {
-	raw, err := json.Marshal(books)
+	raw, err := json.MarshalIndent(books, "", "    ")
 	if err != nil {
 		log.Println(err)
 	}
