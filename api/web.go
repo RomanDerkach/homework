@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"strings"
 
 	"github.com/RomanDerkach/homework/storage"
 	"github.com/satori/go.uuid"
@@ -78,6 +79,7 @@ func booksHandlerByID(w http.ResponseWriter, r *http.Request) {
 	books := storage.GetBooksData()
 	reqBookID := path.Base(r.URL.Path)
 	resBook := storage.Book{}
+	resBooks := []storage.Book{}
 	if r.Method == "GET" {
 		for _, book := range books {
 			if book.ID == reqBookID {
@@ -132,6 +134,31 @@ func booksHandlerByID(w http.ResponseWriter, r *http.Request) {
 		books[bookIndex] = book
 		storage.SaveBookData(books)
 		jsonBody, err := json.Marshal(book)
+		if err != nil {
+			http.Error(w, "Can't jsonify own data", http.StatusInternalServerError)
+			return
+		}
+		w.Write(jsonBody)
+	}
+	if r.Method == "POST" {
+		bookFilter := storage.BookFilter{}
+		err := json.NewDecoder(r.Body).Decode(&bookFilter)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if bookFilter == (storage.BookFilter{}) {
+			http.Error(w, "Currently we support only {'title': 'Tom'}", http.StatusBadRequest)
+			return
+		}
+		fmt.Println(bookFilter)
+		for _, book := range books {
+			if strings.Contains(strings.ToLower(book.Title), strings.ToLower(bookFilter.Title)) {
+				resBooks = append(resBooks, book)
+			}
+		}
+		jsonBody, err := json.Marshal(resBooks)
 		if err != nil {
 			http.Error(w, "Can't jsonify own data", http.StatusInternalServerError)
 			return
