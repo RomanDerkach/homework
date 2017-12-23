@@ -2,11 +2,12 @@ package storage
 
 import (
 	"encoding/json"
+	"flag"
 	"io/ioutil"
 	"log"
 )
 
-const DB = "storage/Books.json"
+var storagePath = flag.String("storagePath", "storage/Books.json", "set path the storage file")
 
 type Book struct {
 	ID     string   `json:"id, omitempty"`
@@ -21,7 +22,7 @@ type BookFilter struct {
 }
 
 func GetDBData() []byte {
-	raw, err := ioutil.ReadFile(DB)
+	raw, err := ioutil.ReadFile(*storagePath)
 	if err != nil {
 		log.Println(err)
 	}
@@ -51,7 +52,7 @@ func SaveBookData(books []Book) {
 	if err != nil {
 		log.Println(err)
 	}
-	err = ioutil.WriteFile(DB, raw, 0777)
+	err = ioutil.WriteFile(*storagePath, raw, 0777)
 	if err != nil {
 		log.Println(err)
 	}
