@@ -1,10 +1,12 @@
 package main
 
 import (
-	// "fmt"
+	"flag"
+
 	"github.com/RomanDerkach/homework/api"
 )
 
 func main() {
+	flag.Parse()
 	api.Server()
 }
