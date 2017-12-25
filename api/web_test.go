@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/RomanDerkach/homework/storage"
@@ -83,7 +84,7 @@ func Test_booksHandler(t *testing.T) {
 	reqPOSTBad := httptest.NewRequest("POST", "/books", nil)
 	reqPOSTGood := httptest.NewRequest("POST", "/books", body)
 	//gives panic ?
-	//reqPOST := http.NewRequest("POST", "/books", nil)
+	//??reqPOST := http.NewRequest("POST", "/books", nil)
 	rwGET := httptest.NewRecorder()
 	rwPOSTBad := httptest.NewRecorder()
 	rwPOSTGood := httptest.NewRecorder()
@@ -109,10 +110,11 @@ func Test_booksHandler(t *testing.T) {
 			}
 			if tt.expBooks != nil {
 				books := storage.Books{}
-				err := json.NewDecoder(rwGET.Body).Decode(&books)
+				err := json.NewDecoder(tt.rw.Body).Decode(&books)
 				if err != nil {
 					t.Errorf("returned data is somehow broken: %v", err)
 				}
+				//?? !reflect.DeepEqual why here it's not working
 				if !testEqBooks(books, tt.expBooks) {
 					t.Errorf("Got wrong data in responce, expected %+v\n but got %+v\n",
 						tt.expBooks, books)
@@ -127,15 +129,48 @@ func Test_booksHandlerByID(t *testing.T) {
 		w http.ResponseWriter
 		r *http.Request
 	}
+	expBooks := storage.GetBooksData()
+	if len(expBooks) == 0 {
+		t.Fatal("There is no books in tested storage")
+	}
+	bookurl := "/books/" + expBooks[0].ID
+	reqGET := httptest.NewRequest("GET", bookurl, nil)
+	rwGET := httptest.NewRecorder()
+	reqDELGood := httptest.NewRequest("DELETE", bookurl, nil)
+	rwDELGood := httptest.NewRecorder()
+	reqDELBad := httptest.NewRequest("DELETE", "/books/badid", nil)
+	rwDELBad := httptest.NewRecorder()
+
 	tests := []struct {
-		name string
-		args args
+		name   string
+		rw     *httptest.ResponseRecorder
+		status int
+		expect bool
+		args   args
 	}{
-	// TODO: Add test cases.
+		{"testGET", rwGET, http.StatusOK, true, args{rwGET, reqGET}},
+		{"testDELGood", rwDELGood, http.StatusAccepted, false, args{rwDELGood, reqDELGood}},
+		{"testDELBad", rwDELBad, http.StatusNotFound, false, args{rwDELBad, reqDELBad}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			booksHandlerByID(tt.args.w, tt.args.r)
+			if status := tt.rw.Code; status != tt.status {
+				t.Errorf("Got wrong status code, expected %v but got %v",
+					tt.status, status)
+			}
+			if tt.expect {
+				book := storage.Book{}
+				err := json.NewDecoder(tt.rw.Body).Decode(&book)
+				if err != nil {
+					t.Errorf("returned data is somehow broken: %v", err)
+				}
+
+				if !reflect.DeepEqual(book, expBooks[0]) {
+					t.Errorf("Got wrong data in responce, expected %v\n but got %v\n",
+						book, expBooks[0])
+				}
+			}
 		})
 	}
 }
