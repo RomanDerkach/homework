@@ -24,7 +24,7 @@ func Server() {
 	log.Fatal(http.ListenAndServe(":8081", nil))
 }
 
-func indexByID(id string, books []storage.Book) (int, error) {
+func indexByID(id string, books storage.Books) (int, error) {
 	for index, book := range books {
 		if book.ID == id {
 			return index, nil
@@ -79,7 +79,7 @@ func booksHandlerByID(w http.ResponseWriter, r *http.Request) {
 	books := storage.GetBooksData()
 	reqBookID := path.Base(r.URL.Path)
 	resBook := storage.Book{}
-	resBooks := []storage.Book{}
+	resBooks := storage.Books{}
 	if r.Method == "GET" {
 		for _, book := range books {
 			if book.ID == reqBookID {
