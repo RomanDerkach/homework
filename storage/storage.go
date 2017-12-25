@@ -17,6 +17,8 @@ type Book struct {
 	Price  float64  `json:"price, omitempty"`
 }
 
+type Books []Book
+
 type BookFilter struct {
 	Title string `json:"title, omitempty"`
 }
@@ -32,7 +34,7 @@ func GetDBData() []byte {
 func GetBooksData() []Book {
 	//dir, _ := os.Getwd()
 	//fmt.Println(dir)
-	books := []Book{}
+	var books Books
 	raw := GetDBData()
 	err := json.Unmarshal(raw, &books)
 	if err != nil {
@@ -47,7 +49,7 @@ func SaveNewBook(book Book) {
 }
 
 //SaveBookData saves all changes with books
-func SaveBookData(books []Book) {
+func SaveBookData(books Books) {
 	raw, err := json.MarshalIndent(books, "", "    ")
 	if err != nil {
 		log.Println(err)
