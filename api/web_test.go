@@ -1,12 +1,13 @@
 package api
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	"bytes"
 
 	"github.com/RomanDerkach/homework/storage"
 )
@@ -73,20 +74,8 @@ func Test_booksHandler(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body := bytes.NewReader(book)
-
-	reqGET := httptest.NewRequest("GET", "/books", nil)
-	reqPOSTBad := httptest.NewRequest("POST", "/books", nil)
-	reqPOSTGood := httptest.NewRequest("POST", "/books", body)
-	//gives panic ?
-	//reqPOST, err := http.NewRequest("POST", "/books", nil)
-
-	rwGET := httptest.NewRecorder()
-	rwPOSTBad := httptest.NewRecorder()
-	rwPOSTGood := httptest.NewRecorder()
 
 	type args struct {
-		w *httptest.ResponseRecorder
 		r *http.Request
 	}
 	tests := []struct {
@@ -95,29 +84,34 @@ func Test_booksHandler(t *testing.T) {
 		expBooks []storage.Book
 		args     args
 	}{
-		{"testget", http.StatusOK, expBooks, args{rwGET, reqGET}},
-		{"testpostbad", http.StatusBadRequest, nil, args{rwPOSTBad, reqPOSTBad}},
-		{"testpostgood", http.StatusOK, nil, args{rwPOSTGood, reqPOSTGood}},
+		{"testget", http.StatusOK, expBooks, args{httptest.NewRequest("GET", "/books", nil)}},
+		{"testpostbad", http.StatusBadRequest, nil, args{httptest.NewRequest("POST", "/books", nil)}},
+		{"testpostgood", http.StatusOK, nil, args{httptest.NewRequest("POST", "/books", bytes.NewReader(book))}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			booksHandler(tt.args.w, tt.args.r)
-			if status := tt.args.w.Code; status != tt.status {
+			rr := httptest.NewRecorder()
+			booksHandler(rr, tt.args.r)
+			if status := rr.Code; status != tt.status {
 				t.Errorf("Got wrong status code, expected %v but got %v",
 					tt.status, status)
 			}
 
-			books := storage.Books{}
-			err := json.NewDecoder(tt.args.w.Body).Decode(&books)
+			if tt.expBooks == nil {
+				return
+			}
+
+			var books []storage.Book
+			err := json.NewDecoder(rr.Body).Decode(&books)
 			if err != nil {
 				t.Errorf("returned data is somehow broken: %v", err)
+				return
 			}
-			//?? !reflect.DeepEqual why here it's not working
-			//if !reflect.DeepEqual(books, tt.expBooks) {
-			// TODO: CHECK!!!
-			if !testEqBooks(books, tt.expBooks) {
-				t.Errorf("Got wrong data in responce, expected %+v\n but got %+v\n",
+
+			// It was not working because tt.expBooks was of type []Book and books of type Books
+			if !reflect.DeepEqual(books, tt.expBooks) {
+				t.Errorf("Got wrong data in responce, expected \n%+v\n but got \n%+v\n",
 					tt.expBooks, books)
 			}
 		})
@@ -132,36 +126,30 @@ func Test_booksHandlerByID(t *testing.T) {
 	bookurl := "/books/" + expBooks[0].ID
 
 	reqGET := httptest.NewRequest("GET", bookurl, nil)
-	rwGET := httptest.NewRecorder()
 
 	reqDELGood := httptest.NewRequest("DELETE", bookurl, nil)
-	rwDELGood := httptest.NewRecorder()
 
 	reqDELBad := httptest.NewRequest("DELETE", "/books/badid", nil)
-	rwDELBad := httptest.NewRecorder()
 
 	type args struct {
 		r *http.Request
 	}
 	tests := []struct {
 		name   string
-		rw     *httptest.ResponseRecorder
 		status int
 		expect *storage.Book
 		args   args
 	}{
 		{
 			"testGET",
-			rwGET,
 			http.StatusOK,
-			true,
+			nil,
 			args{
-				rwGET,
 				reqGET,
 			},
 		},
-		{"testDELGood", rwDELGood, http.StatusAccepted, nil, args{reqDELGood}},
-		{"testDELBad", rwDELBad, http.StatusNotFound, false, args{reqDELBad}},
+		{"testDELGood", http.StatusAccepted, nil, args{reqDELGood}},
+		{"testDELBad", http.StatusNotFound, nil, args{reqDELBad}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -177,7 +165,7 @@ func Test_booksHandlerByID(t *testing.T) {
 			}
 
 			book := storage.Book{}
-			err := json.NewDecoder(tt.rw.Body).Decode(&book)
+			err := json.NewDecoder(rr.Body).Decode(&book)
 			if err != nil {
 				t.Errorf("returned data is somehow broken: %v", err)
 				return
