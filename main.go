@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 
+	"log"
+
 	"github.com/RomanDerkach/homework/api"
 )
 
 func main() {
 	flag.Parse()
-	api.Server()
+	log.Fatal(api.Server())
 }

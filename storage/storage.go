@@ -5,9 +5,18 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+
+	"github.com/pkg/errors"
 )
 
 var storagePath = flag.String("storagePath", "storage/Books.json", "set path the storage file")
+
+var (
+	ErrTitleEmpty  = errors.New("There is no title request")
+	ErrGanresEmpty = errors.New("There is no ganres in request")
+	ErrPagesEmpty  = errors.New("There is no pages in request")
+	ErrPriceEmpty  = errors.New("There is no price in request")
+)
 
 type Book struct {
 	ID     string   `json:"id, omitempty"`
@@ -15,6 +24,22 @@ type Book struct {
 	Ganres []string `json:"ganres, omitempty"`
 	Pages  int      `json:"pages, omitempty"`
 	Price  float64  `json:"price, omitempty"`
+}
+
+func (b Book) Validate() (err error) {
+	if b.Title == "" {
+		return ErrTitleEmpty
+	}
+	if len(b.Ganres) == 0 {
+		return ErrGanresEmpty
+	}
+	if b.Pages == 0 {
+		return ErrPagesEmpty
+	}
+	if b.Price == 0 {
+		return ErrPriceEmpty
+	}
+	return
 }
 
 type Books []Book
@@ -26,6 +51,7 @@ type BookFilter struct {
 func GetDBData() []byte {
 	raw, err := ioutil.ReadFile(*storagePath)
 	if err != nil {
+		// SKIPPED ERROR CHECK!!!!!!!!!!!!!!!!!!!!!!!11111111oneoneone
 		log.Println(err)
 	}
 	return raw
@@ -43,19 +69,16 @@ func GetBooksData() []Book {
 	return books
 }
 
-func SaveNewBook(book Book) {
+func SaveNewBook(book Book) error {
 	books := append(GetBooksData(), book)
-	SaveBookData(books)
+	return errors.Wrap(SaveBookData(books), "can't save book data")
 }
 
 //SaveBookData saves all changes with books
-func SaveBookData(books Books) {
+func SaveBookData(books Books) error {
 	raw, err := json.MarshalIndent(books, "", "    ")
 	if err != nil {
-		log.Println(err)
+		return errors.Wrap(err, "can't marshal json")
 	}
-	err = ioutil.WriteFile(*storagePath, raw, 0777)
-	if err != nil {
-		log.Println(err)
-	}
+	return errors.Wrap(ioutil.WriteFile(*storagePath, raw, 0777), "can't write to file")
 }
