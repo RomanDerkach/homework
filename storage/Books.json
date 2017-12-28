@@ -2,7 +2,7 @@
     {
         "id": "1349A807-87CA-446C-9740-480238489517",
         "title": "Book title1",
-        "ganres": [
+        "genres": [
             "detective",
             "comedy"
         ],
@@ -12,7 +12,7 @@
     {
         "id": "C97376B9-6C2E-41E5-9DBE-2E82C0EF114B",
         "title": "Book title2",
-        "ganres": [
+        "genres": [
             "adventure"
         ],
         "pages": 234,
@@ -21,7 +21,7 @@
     {
         "id": "FFAD23EB-8FF4-4E09-82D2-AA33EBE3997F",
         "title": "Book title3",
-        "ganres": [
+        "genres": [
             "historical"
         ],
         "pages": 321,
@@ -30,7 +30,7 @@
     {
         "id": "fd7bca58-1004-4f7e-8cfd-57138bda947b",
         "title": "Tom Soer",
-        "ganres": [
+        "genres": [
             "adventure"
         ],
         "pages": 600,
@@ -39,7 +39,7 @@
     {
         "id": "da62340d-afa3-4502-92ac-638b13f7f034",
         "title": "Tom Soer ABC edition",
-        "ganres": [
+        "genres": [
             "a",
             "b",
             "c",
@@ -51,7 +51,7 @@
     {
         "id": "8ef6d61c-2c5f-4119-9624-d7a9a795c7df",
         "title": "Tom Soer",
-        "ganres": [
+        "genres": [
             "adventure"
         ],
         "pages": 600,
@@ -60,7 +60,7 @@
     {
         "id": "3e88a02b-9ea8-435b-b47c-dcff2cb559eb",
         "title": "Tom Soer",
-        "ganres": [
+        "genres": [
             "adventure"
         ],
         "pages": 600,
@@ -69,7 +69,7 @@
     {
         "id": "32cbd7b7-f39e-45bd-8734-e8d46165c667",
         "title": "Tom Soer ABC edition",
-        "ganres": [
+        "genres": [
             "a",
             "b",
             "c",
@@ -77,5 +77,14 @@
         ],
         "pages": 200,
         "price": 3.332
+    },
+    {
+        "id": "b27d9fa2-c7e7-4882-82bd-a776fa7978c7",
+        "title": "Tom Soer",
+        "genres": [
+            "adventure"
+        ],
+        "pages": 600,
+        "price": 6.66
     }
 ]

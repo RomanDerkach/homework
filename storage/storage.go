@@ -13,7 +13,7 @@ var storagePath = flag.String("storagePath", "storage/Books.json", "set path the
 
 var (
 	ErrTitleEmpty  = errors.New("There is no title request")
-	ErrGanresEmpty = errors.New("There is no ganres in request")
+	ErrGenresEmpty = errors.New("There is no genres in request")
 	ErrPagesEmpty  = errors.New("There is no pages in request")
 	ErrPriceEmpty  = errors.New("There is no price in request")
 )
@@ -21,7 +21,7 @@ var (
 type Book struct {
 	ID     string   `json:"id, omitempty"`
 	Title  string   `json:"title, omitempty"`
-	Ganres []string `json:"ganres, omitempty"`
+	Genres []string `json:"genres, omitempty"`
 	Pages  int      `json:"pages, omitempty"`
 	Price  float64  `json:"price, omitempty"`
 }
@@ -30,8 +30,8 @@ func (b Book) Validate() (err error) {
 	if b.Title == "" {
 		return ErrTitleEmpty
 	}
-	if len(b.Ganres) == 0 {
-		return ErrGanresEmpty
+	if len(b.Genres) == 0 {
+		return ErrGenresEmpty
 	}
 	if b.Pages == 0 {
 		return ErrPagesEmpty
