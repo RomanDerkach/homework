@@ -66,7 +66,7 @@ func Test_booksHandler(t *testing.T) {
 	expBooks := storage.GetBooksData()
 	newBook := storage.Book{
 		Title:  "test",
-		Ganres: []string{"erotic"},
+		Genres: []string{"erotic"},
 		Pages:  111,
 		Price:  33.33,
 	}
