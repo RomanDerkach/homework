@@ -12,17 +12,35 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-// ErrNotFound for the error when we havn't found something
+// ErrNotFound for the error when we haven't found something
 var (
 	ErrNotFound    = errors.New("can't find the book with given ID")
 	ErrIDImmutable = errors.New("id can't be changed")
 )
 
+//Storage describe a storage interface for handler
+type Storage interface {
+	GetDBData() ([]byte, error)
+	GetBooksData() (storage.Books, error)
+	SaveNewBook(book storage.Book) error
+	SaveBookData(books storage.Books) error
+}
+
+type handler struct {
+	storage Storage
+}
+
+func NewHandler(storage Storage) *handler {
+	return &handler{
+		storage: storage,
+	}
+}
+
 // Server is function that starts the main process.
-func Server() error {
+func Server(handler *handler) error {
 	//run server
-	http.HandleFunc("/books", booksHandler)
-	http.HandleFunc("/books/", booksHandlerByID)
+	http.HandleFunc("/books", handler.booksHandler)
+	http.HandleFunc("/books/", handler.booksHandlerByID)
 	return http.ListenAndServe(":8081", nil)
 }
 
@@ -35,25 +53,31 @@ func indexByID(id string, books storage.Books) (int, error) {
 	return 0, ErrNotFound
 }
 
-func booksHandler(w http.ResponseWriter, r *http.Request) {
+func (h *handler) booksHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		booksHandlerPOST(w, r)
+		h.booksHandlerPOST(w, r)
 	case http.MethodGet:
-		booksHandlerGET(w, r)
+		h.booksHandlerGET(w, r)
 	}
 }
 
-func booksHandlerGET(w http.ResponseWriter, r *http.Request) {
-	jsonBody := storage.GetDBData()
-	_, err := w.Write(jsonBody)
+func (h *handler) booksHandlerGET(w http.ResponseWriter, r *http.Request) {
+	jsonBody, err := h.storage.GetDBData()
+	if err != nil {
+		err = errors.Wrap(err, "cant get data from storage")
+		log.Println(err)
+		http.Error(w, "Cant get data from storage", http.StatusInternalServerError)
+		return
+	}
+	_, err = w.Write(jsonBody)
 	if err != nil {
 		err = errors.Wrap(err, "cant write a response to user")
 		log.Println(err)
 	}
 }
 
-func booksHandlerPOST(w http.ResponseWriter, r *http.Request) {
+func (h *handler) booksHandlerPOST(w http.ResponseWriter, r *http.Request) {
 	newBook := storage.Book{}
 	err := json.NewDecoder(r.Body).Decode(&newBook)
 	if err != nil {
@@ -72,7 +96,7 @@ func booksHandlerPOST(w http.ResponseWriter, r *http.Request) {
 
 	newBook.ID = uuid.NewV4().String()
 	//fmt.Println(newBook)
-	err = storage.SaveNewBook(newBook)
+	err = h.storage.SaveNewBook(newBook)
 	if err != nil {
 		err := errors.Wrap(err, "can't save book")
 		log.Println(err)
@@ -81,31 +105,39 @@ func booksHandlerPOST(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func booksHandlerByID(w http.ResponseWriter, r *http.Request) {
+func (h *handler) booksHandlerByID(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		booksHandlerByIDGET(w, r)
+		h.booksHandlerByIDGET(w, r)
 	case http.MethodDelete:
-		booksHandlerByIDDELETE(w, r)
+		h.booksHandlerByIDDELETE(w, r)
 	case http.MethodPut:
-		booksHandlerByIDPUT(w, r)
+		h.booksHandlerByIDPUT(w, r)
 	case http.MethodPost:
-		booksHandlerByIDPOST(w, r)
+		h.booksHandlerByIDPOST(w, r)
 	}
 }
 
-func booksHandlerByIDGET(w http.ResponseWriter, r *http.Request) {
-	books := storage.GetBooksData()
+func (h *handler) booksHandlerByIDGET(w http.ResponseWriter, r *http.Request) {
+	books, err := h.storage.GetBooksData()
+	if err != nil {
+		err = errors.Wrap(err, "cant get data from storage")
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	reqBookID := path.Base(r.URL.Path)
 	bookIndex, err := indexByID(reqBookID, books)
 	if err != nil {
 		err = errors.Wrap(err, "book with such id not found")
+		log.Println(err)
 		http.Error(w, "there is no book with such id", http.StatusNotFound)
 		return
 	}
 	jsonBody, err := json.Marshal(books[bookIndex])
 	if err != nil {
 		err = errors.Wrap(err, "error converting results to json")
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -115,18 +147,25 @@ func booksHandlerByIDGET(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 }
-func booksHandlerByIDDELETE(w http.ResponseWriter, r *http.Request) {
-	books := storage.GetBooksData()
+func (h *handler) booksHandlerByIDDELETE(w http.ResponseWriter, r *http.Request) {
+	books, err := h.storage.GetBooksData()
+	if err != nil {
+		err = errors.Wrap(err, "cant get data from storage")
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	reqBookID := path.Base(r.URL.Path)
 	bookIndex, err := indexByID(reqBookID, books)
 	if err != nil {
 		err = errors.Wrap(err, "book with such id not found")
+		log.Println(err)
 		http.Error(w, "there is no book with such id", http.StatusNotFound)
 		return
 	}
 	books = append(books[:bookIndex], books[bookIndex+1:]...)
 	// books could be changed from other goroutine while executing
-	err = storage.SaveBookData(books)
+	err = h.storage.SaveBookData(books)
 	if err != nil {
 		err := errors.Wrap(err, "can't save updated books")
 		log.Println(err)
@@ -135,12 +174,19 @@ func booksHandlerByIDDELETE(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusAccepted)
 }
-func booksHandlerByIDPUT(w http.ResponseWriter, r *http.Request) {
-	books := storage.GetBooksData()
+func (h *handler) booksHandlerByIDPUT(w http.ResponseWriter, r *http.Request) {
+	books, err := h.storage.GetBooksData()
+	if err != nil {
+		err = errors.Wrap(err, "cant get data from storage")
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	reqBookID := path.Base(r.URL.Path)
 	bookIndex, err := indexByID(reqBookID, books)
 	if err != nil {
 		err = errors.Wrap(err, "book with such id not found")
+		log.Println(err)
 		http.Error(w, "There is no book with such id", http.StatusNotFound)
 		return
 	}
@@ -163,10 +209,16 @@ func booksHandlerByIDPUT(w http.ResponseWriter, r *http.Request) {
 	}
 
 	books[bookIndex] = book
-	storage.SaveBookData(books)
+	err = h.storage.SaveBookData(books)
+	if err != nil {
+		errors.Wrap(err, "cant save updated books")
+		log.Println(err)
+		http.Error(w, "Cant save updated data", http.StatusInternalServerError)
+	}
 	jsonBody, err := json.Marshal(book)
 	if err != nil {
 		err = errors.Wrap(err, "data cant be jsnify")
+		log.Println(err)
 		http.Error(w, "Can't jsonify own data", http.StatusInternalServerError)
 		return
 	}
@@ -177,11 +229,17 @@ func booksHandlerByIDPUT(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func booksHandlerByIDPOST(w http.ResponseWriter, r *http.Request) {
-	books := storage.GetBooksData()
+func (h *handler) booksHandlerByIDPOST(w http.ResponseWriter, r *http.Request) {
+	books, err := h.storage.GetBooksData()
+	if err != nil {
+		err = errors.Wrap(err, "cant get data from storage")
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	resBooks := storage.Books{}
 	bookFilter := storage.BookFilter{}
-	err := json.NewDecoder(r.Body).Decode(&bookFilter)
+	err = json.NewDecoder(r.Body).Decode(&bookFilter)
 	if err != nil {
 		err = errors.Wrap(err, "currapted request body in filter")
 		log.Println(err)
