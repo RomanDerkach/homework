@@ -14,6 +14,9 @@ type Book struct {
 	Price  float64        `gorm:"not null"    json:"price, omitempty"`
 }
 
+//ErrNotFound for the error when we haven't found something
+var ErrNotFound = errors.New("can't find the book with given ID")
+
 var (
 	//ErrTitleEmpty error on book validation
 	ErrTitleEmpty  = errors.New("There is no title request")
@@ -22,12 +25,15 @@ var (
 	ErrPriceEmpty  = errors.New("There is no price in request")
 )
 
+//Books is a list of book structures
 type Books []Book
 
+//BookFilter struct for book filtering
 type BookFilter struct {
 	Title string `json:"title, omitempty"`
 }
 
+//Validate ..
 func (b Book) Validate() (err error) {
 	if b.Title == "" {
 		return ErrTitleEmpty
