@@ -44,8 +44,8 @@ func Test_indexByID(t *testing.T) {
 		want        int
 		expectedErr error
 	}{
-		{"found", args{"C97376B9-6C2E-41E5-9DBE-2E82C0EF114B", storage.GetBooksData()}, 1, nil},
-		{"notfound", args{"11111111-1111-1111-1111-111111111111", storage.GetBooksData()}, 0, ErrNotFound},
+		{"found", args{"C97376B9-6C2E-41E5-9DBE-2E82C0EF114B", storage.GetBooks()}, 1, nil},
+		{"notfound", args{"11111111-1111-1111-1111-111111111111", storage.GetBooks()}, 0, ErrNotFound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -63,7 +63,7 @@ func Test_indexByID(t *testing.T) {
 }
 
 func Test_booksHandler(t *testing.T) {
-	expBooks := storage.GetBooksData()
+	expBooks := storage.GetBooks()
 	newBook := storage.Book{
 		Title:  "test",
 		Genres: []string{"erotic"},
@@ -119,7 +119,7 @@ func Test_booksHandler(t *testing.T) {
 }
 
 func Test_booksHandlerByID(t *testing.T) {
-	expBooks := storage.GetBooksData()
+	expBooks := storage.GetBooks()
 	if len(expBooks) == 0 {
 		t.Fatal("There is no books in tested storage")
 	}
