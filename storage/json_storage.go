@@ -5,21 +5,38 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 )
 
 //JSONStorage this a struct for describing json storage
 type JSONStorage struct {
-	storage string
+	storage      *os.File
+	storageMutex sync.RWMutex
 }
 
 //NewJSONStorage create a new object of JSON storage
-func NewJSONStorage(pathToStorage string) *JSONStorage {
-	return &JSONStorage{
-		storage: pathToStorage,
+func NewJSONStorage(pathToStorage string) (*JSONStorage, error) {
+	storagePath, err := filepath.Abs(pathToStorage)
+	if err != nil {
+		return nil, err
 	}
+
+	if _, err = os.Stat(storagePath); err != nil {
+		// It would be better to know if something wrong before application start
+		return nil, err
+	}
+	file, err := os.OpenFile(storagePath, os.O_RDWR|os.O_CREATE, 0660)
+	//We handle this closing in main ???
+	// defer file.Close()
+	if err != nil {
+		return nil, err
+	}
+	return &JSONStorage{storage: file}, nil
 }
 
 func indexByID(id string, books Books) (int, error) {
@@ -31,39 +48,52 @@ func indexByID(id string, books Books) (int, error) {
 	return 0, ErrNotFound
 }
 
+//Close opened file.
+func (j *JSONStorage) Close() error {
+	return nil
+}
+
 func (j *JSONStorage) writeToFile(books Books) error {
 	raw, err := json.MarshalIndent(books, "", "    ")
 	if err != nil {
 		return errors.Wrap(err, "can't marshal json")
 	}
-	return errors.Wrap(ioutil.WriteFile(j.storage, raw, 0644), "can't write to file")
-}
-
-//readFromFile returns sequence of bytes which represents books
-func (j *JSONStorage) readFromFile() ([]byte, error) {
-	raw, err := ioutil.ReadFile(j.storage)
+	err = j.storage.Truncate(0)
 	if err != nil {
-		err = errors.Wrap(err, "cant get data from json file")
-		log.Println(err)
-		return nil, err
+		return err
 	}
-	return raw, nil
+	_, err = j.storage.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+	_, err = j.storage.Write(raw)
+	return errors.Wrap(err, "can't write to file")
 }
 
 //GetBooks return all books as a list of book struct
 func (j *JSONStorage) GetBooks() (Books, error) {
-	//dir, _ := os.Getwd()
-	//fmt.Println(dir)
+	j.storageMutex.RLock()
+	defer j.storageMutex.RUnlock()
+	return j.getBooks()
+}
+
+func (j *JSONStorage) getBooks() (Books, error) {
 	var books Books
-	raw, err := j.readFromFile()
+
+	_, err := j.storage.Seek(0, 0)
 	if err != nil {
-		err = errors.Wrap(err, "Cant get books")
+		return nil, err
+	}
+
+	raw, err := ioutil.ReadAll(j.storage)
+	if err != nil {
+		err = errors.Wrap(err, "cant get books")
 		log.Println(err)
 		return nil, err
 	}
 	err = json.Unmarshal(raw, &books)
 	if err != nil {
-		err = errors.Wrap(err, "Cant unmarshal books")
+		err = errors.Wrap(err, "cant unmarshal books")
 		log.Println(err)
 		return nil, err
 	}
@@ -72,11 +102,13 @@ func (j *JSONStorage) GetBooks() (Books, error) {
 
 //SaveBook save only one new book to storage
 func (j *JSONStorage) SaveBook(book Book) error {
-	books, err := j.GetBooks()
+	j.storageMutex.Lock()
+	defer j.storageMutex.Unlock()
+	books, err := j.getBooks()
 	if err != nil {
 		err = errors.Wrap(err, "can't get book data")
 		log.Println(err)
-		return nil
+		return err
 	}
 	books = append(books, book)
 	return errors.Wrap(j.writeToFile(books), "can't save book data")
@@ -85,7 +117,7 @@ func (j *JSONStorage) SaveBook(book Book) error {
 //GetBook ...
 func (j *JSONStorage) GetBook(bookID string) (Book, error) {
 	book := Book{}
-	books, err := j.GetBooks()
+	books, err := j.getBooks()
 	if err != nil {
 		err = errors.Wrap(err, "cant get books from storage")
 		log.Println(err)
@@ -103,7 +135,9 @@ func (j *JSONStorage) GetBook(bookID string) (Book, error) {
 
 //DeleteBook ...
 func (j *JSONStorage) DeleteBook(bookID string) error {
-	books, err := j.GetBooks()
+	j.storageMutex.Lock()
+	defer j.storageMutex.Unlock()
+	books, err := j.getBooks()
 	if err != nil {
 		err = errors.Wrap(err, "cant get books from storage")
 		log.Println(err)
@@ -128,7 +162,9 @@ func (j *JSONStorage) DeleteBook(bookID string) error {
 
 //UpdateBook ...
 func (j *JSONStorage) UpdateBook(bookID string, updBook Book) (Book, error) {
-	books, err := j.GetBooks()
+	j.storageMutex.Lock()
+	defer j.storageMutex.Unlock()
+	books, err := j.getBooks()
 	if err != nil {
 		err = errors.Wrap(err, "cant get books from storage")
 		log.Println(err)
@@ -154,7 +190,7 @@ func (j *JSONStorage) UpdateBook(bookID string, updBook Book) (Book, error) {
 //FilterBooks filter books that is needed
 func (j *JSONStorage) FilterBooks(filter BookFilter) (Books, error) {
 	resBooks := Books{}
-	books, err := j.GetBooks()
+	books, err := j.getBooks()
 	if err != nil {
 		err = errors.Wrap(err, "cant get books from storage")
 		log.Println(err)
