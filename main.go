@@ -3,47 +3,46 @@ package main
 import (
 	"flag"
 
-	"github.com/jinzhu/gorm"
-
 	"log"
 
 	"github.com/RomanDerkach/homework/api"
 	"github.com/RomanDerkach/homework/storage"
+	"github.com/pkg/errors"
 )
 
 var (
-	storagePath = flag.String("storagePath", "storage/Books.json", "set path the storage file")
-	useSQL      = flag.Bool("useSQL", false, "use sql db instead of simple json file")
+	fileStoragePath = flag.String("storagePath", "storage/Books.json", "set path the storage file")
+	sqlStoragePath  = flag.String("useSQL", "", "set path the sql storage file")
+	host            = flag.String("host", ":8081", "host for http server")
 )
 
 func main() {
 	var (
-		dbStorage *gorm.DB
-		err       error
-		store     api.Storage
+		err   error
+		store api.Storage
 	)
-
-	defer func() {
-		if dbStorage != nil {
-			err = dbStorage.Close()
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-	}()
 
 	flag.Parse()
 
-	switch *useSQL {
-	case true:
-		dbStorage, err = storage.InitDB("sqlite3", "storage/book.db")
-		if err != nil {
+	if len(*sqlStoragePath) != 0 {
+		store, err = storage.NewSQLStorage(*sqlStoragePath)
+	} else {
+		store, err = storage.NewJSONStorage(*fileStoragePath)
+	}
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "cannot create new storage"))
+	}
+
+	defer func() {
+		if err := store.Close(); err != nil {
+			err = errors.Wrap(err, "can't close storage")
 			log.Fatal(err)
 		}
-		store = storage.NewSQLStorage(dbStorage)
-	case false:
-		store = storage.NewJSONStorage(*storagePath)
+	}()
+
+	handler, err := api.NewHandler(store)
+	if err != nil {
+		log.Fatal(errors.Wrap(err, "cannot create new handler"))
 	}
-	handler := api.NewHandler(store)
-	log.Fatal(api.Server(handler))
+	log.Fatal(api.Server(handler, *host))
 }
