@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrIDImmutable = errors.New("id can't be changed")
+	ErrNilStorage = errors.New("handler requires not nil storage")
 )
 
 //Storage describe a storage interface for handler
@@ -23,6 +23,7 @@ type Storage interface {
 	DeleteBook(bookID string) error
 	UpdateBook(bookID string, updBook storage.Book) (storage.Book, error)
 	FilterBooks(filter storage.BookFilter) (storage.Books, error)
+	Close() error
 }
 
 type handler struct {
@@ -30,18 +31,19 @@ type handler struct {
 }
 
 //NewHandler constructor for handlers
-func NewHandler(storage Storage) *handler {
-	return &handler{
-		storage: storage,
+func NewHandler(storage Storage) (*handler, error) {
+	if storage == nil {
+		return nil, ErrNilStorage
 	}
+	return &handler{storage: storage}, nil
 }
 
 // Server is function that starts the main process.
-func Server(handler *handler) error {
+func Server(handler *handler, host string) error {
 	//run server
 	http.HandleFunc("/books", handler.booksHandler)
 	http.HandleFunc("/books/", handler.booksHandlerByID)
-	return http.ListenAndServe(":8081", nil)
+	return http.ListenAndServe(host, nil)
 }
 
 func (h *handler) booksHandler(w http.ResponseWriter, r *http.Request) {
@@ -58,17 +60,21 @@ func (h *handler) booksHandlerGET(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		err = errors.Wrap(err, "cant get data from storage")
 		log.Println(err)
-		http.Error(w, "Cant get data from storage", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	jsonBody, err := json.Marshal(books)
 	if err != nil {
-		err = errors.Wrap(err, "Cant marshal books")
+		err = errors.Wrap(err, "error converting results to json")
 		log.Println(err)
-		http.Error(w, "Can't form a response", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, err = w.Write(jsonBody)
+	n, err := w.Write(jsonBody)
+	if n != len(jsonBody) {
+		err = errors.Wrap(err, "not all the data was sent to user")
+		log.Println(err)
+	}
 	if err != nil {
 		err = errors.Wrap(err, "cant write a response to user")
 		log.Println(err)
@@ -123,12 +129,12 @@ func (h *handler) booksHandlerByIDGET(w http.ResponseWriter, r *http.Request) {
 		if err == storage.ErrNotFound {
 			err = errors.Wrap(err, "there is no book with such id in storage")
 			log.Println(err)
-			http.Error(w, "There is no book with such id", http.StatusNotFound)
+			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		err = errors.Wrap(err, "cant get data from storage")
 		log.Println(err)
-		http.Error(w, "Can't get data from the storage", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	jsonBody, err := json.Marshal(book)
@@ -138,7 +144,14 @@ func (h *handler) booksHandlerByIDGET(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, err = w.Write(jsonBody)
+
+	n, err := w.Write(jsonBody)
+
+	if n != len(jsonBody) {
+		err = errors.Wrap(err, "not all the data was sent to user")
+		log.Println(err)
+	}
+
 	if err != nil {
 		err = errors.Wrap(err, "cant write a response to user")
 		log.Println(err)
@@ -152,7 +165,7 @@ func (h *handler) booksHandlerByIDDELETE(w http.ResponseWriter, r *http.Request)
 		if err == storage.ErrNotFound {
 			err = errors.Wrap(err, "there is no book with such id in storage")
 			log.Println(err)
-			http.Error(w, "There is no book with such id", http.StatusNotFound)
+			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		err = errors.Wrap(err, "can't save updated books")
@@ -182,22 +195,27 @@ func (h *handler) booksHandlerByIDPUT(w http.ResponseWriter, r *http.Request) {
 		if err == storage.ErrNotFound {
 			err = errors.Wrap(err, "there is no book with such id in storage")
 			log.Println(err)
-			http.Error(w, "There is no book with such id", http.StatusNotFound)
+			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		err = errors.Wrap(err, "can't update a book")
 		log.Println(err)
-		http.Error(w, "Can't upgrade a book", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	jsonBody, err := json.Marshal(book)
 	if err != nil {
-		err = errors.Wrap(err, "data cant be jsonify")
+		err = errors.Wrap(err, "error converting results to json")
 		log.Println(err)
-		http.Error(w, "Can't jsonify own data", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, err = w.Write(jsonBody)
+
+	n, err := w.Write(jsonBody)
+	if n != len(jsonBody) {
+		err = errors.Wrap(err, "not all the data was sent to user")
+		log.Println(err)
+	}
 	if err != nil {
 		err = errors.Wrap(err, "cant write a response to user")
 		log.Println(err)
@@ -223,17 +241,22 @@ func (h *handler) booksHandlerByIDPOST(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		err = errors.Wrap(err, "cant filter books")
 		log.Println(err)
-		http.Error(w, "Cant filter books", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	jsonBody, err := json.Marshal(books)
 	if err != nil {
-		err = errors.Wrap(err, "cant murshal result")
+		err = errors.Wrap(err, "error converting results to json")
 		log.Println(err)
-		http.Error(w, "Can't jsonify own data", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, err = w.Write(jsonBody)
+
+	n, err := w.Write(jsonBody)
+	if n != len(jsonBody) {
+		err = errors.Wrap(err, "not all the data was sent to user")
+		log.Println(err)
+	}
 	if err != nil {
 		err = errors.Wrap(err, "cant write a response to user")
 		log.Println(err)

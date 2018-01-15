@@ -19,10 +19,10 @@ var ErrNotFound = errors.New("can't find the book with given ID")
 
 var (
 	//ErrTitleEmpty error on book validation
-	ErrTitleEmpty  = errors.New("There is no title request")
-	ErrGenresEmpty = errors.New("There is no genres in request")
-	ErrPagesEmpty  = errors.New("There is no pages in request")
-	ErrPriceEmpty  = errors.New("There is no price in request")
+	ErrTitleEmpty  = errors.New("there is no title request")
+	ErrGenresEmpty = errors.New("there is no genres in request")
+	ErrPagesEmpty  = errors.New("there is no pages in request")
+	ErrPriceEmpty  = errors.New("there is no price in request")
 )
 
 //Books is a list of book structures
