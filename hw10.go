@@ -34,7 +34,7 @@ func main() {
 	//Describe outRoads
 	outRoadMap[1] = roadStruct{time.Second * 2, rand.Intn(6)}
 	outRoadMap[2] = roadStruct{time.Second * 2, 1}
-	outRoadMap[3] = roadStruct{time.Second * 3600, 1}
+	outRoadMap[3] = roadStruct{time.Hour, 1}
 	outRoadMap[4] = roadStruct{time.Second * 4, 10}
 
 	for road, config := range inRoadMap {
@@ -46,49 +46,70 @@ func main() {
 	go trafficCircle(ctx, circleIn, circleOut)
 	time.Sleep(time.Second * 30)
 	cancel()
+	// TODO: Add wg
 }
 
 func inRoad(ctx context.Context, circleIn chan<- carStruct, rDesc roadStruct, roadNum int) {
+	ticker := time.NewTicker(rDesc.sleepDuration / time.Duration(rDesc.carNum))
+	defer ticker.Stop()
+
 	//send cars to trafficCircle
-	for {
+	for j := 0; ; j++ {
 		select {
 		case <-ctx.Done():
 			return
-		default:
-			for j := 0; j < rDesc.carNum; j++ {
-				carID := fmt.Sprintf("Car#%d from road #%d\n", j, roadNum)
-				fmt.Println(carID)
-				newCar := carStruct{carID, time.Now()}
-				circleIn <- newCar
-			}
-			fmt.Printf("Road with number %d will be sleeping for %d \n", roadNum, rDesc.sleepDuration)
-			time.Sleep(rDesc.sleepDuration)
+		case <-ticker.C:
+			carID := fmt.Sprintf("Car #%d from road #%d\n", j, roadNum)
+			fmt.Println(carID)
+			newCar := carStruct{carID, time.Now()}
+			circleIn <- newCar
 		}
 	}
-
 }
+
+//func inRoad(ctx context.Context, circleIn chan<- carStruct, rDesc roadStruct, roadNum int) {
+//	//send cars to trafficCircle
+//	for {
+//		select {
+//		case <-ctx.Done():
+//			return
+//		default:
+//			for j := 0; j < rDesc.carNum; j++ {
+//				carID := fmt.Sprintf("Car#%d from road #%d\n", j, roadNum)
+//				fmt.Println(carID)
+//				newCar := carStruct{carID, time.Now()}
+//				circleIn <- newCar
+//			}
+//			fmt.Printf("Road with number %d will be sleeping for %d \n", roadNum, rDesc.sleepDuration)
+//			time.Sleep(rDesc.sleepDuration)
+//		}
+//	}
+//
+//}
 
 // TrafficCircle describe a circle
 func trafficCircle(ctx context.Context, circleIn chan carStruct, circleOut chan carStruct) {
+LoopLabel:
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		default:
-			for car := range circleIn {
-				fmt.Println(time.Since(car.onCircleTime))
-				fmt.Println(time.Second)
+		case car, ok := <-circleIn:
+			if !ok {
+				break LoopLabel
+			}
+			//fmt.Println(time.Since(car.onCircleTime))
+			//fmt.Println(time.Second)
 
-				// circleOut <- car
-				status := time.Since(car.onCircleTime) > time.Second
-				fmt.Println(status)
-				if time.Since(car.onCircleTime) > time.Second {
-					fmt.Println("took car from")
-					circleOut <- car
-				} else {
-					fmt.Println("Car is back in channel")
-					circleIn <- car
-				}
+			// circleOut <- car
+			//status := time.Since(car.onCircleTime) > time.Second
+			//fmt.Println(status)
+			if time.Since(car.onCircleTime) > time.Second {
+				fmt.Println("took car from")
+				circleOut <- car
+			} else {
+				//fmt.Println("Car is back in channel")
+				circleIn <- car
 			}
 		}
 	}
