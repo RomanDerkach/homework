@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"time"
 
@@ -10,13 +11,15 @@ import (
 )
 
 type carStruct struct {
-	id           string
-	onCircleTime time.Time
+	id          string
+	departure   int
+	destination int
 }
 
 type roadStruct struct {
 	sleepDuration time.Duration
 	carNum        int
+	roadCh        chan carStruct
 }
 
 func main() {
@@ -25,55 +28,67 @@ func main() {
 	inRoadMap := make(map[int]roadStruct)
 	outRoadMap := make(map[int]roadStruct)
 	circleIn := make(chan carStruct, 8)
-	circleOut := make(chan carStruct, 8)
+	// circleOut := make(chan carStruct, 8)
 	ctx, cancel := context.WithCancel(context.Background())
 	// wg := &sync.WaitGroup{}
 
 	//Describe inRoad
-	inRoadMap[1] = roadStruct{time.Second * 2, rand.Intn(6)}
-	inRoadMap[2] = roadStruct{time.Second * 2, 1}
-	inRoadMap[3] = roadStruct{time.Second * 3, 1}
-	inRoadMap[4] = roadStruct{time.Second * 4, 10}
+	inRoadMap[1] = roadStruct{time.Second * 2, rand.Intn(6), circleIn}
+	inRoadMap[2] = roadStruct{time.Second * 2, 1, circleIn}
+	inRoadMap[3] = roadStruct{time.Second * 3, 1, circleIn}
+	inRoadMap[4] = roadStruct{time.Second * 4, 10, circleIn}
 
 	//Describe outRoads
-	outRoadMap[1] = roadStruct{time.Second * 2, rand.Intn(6)}
-	outRoadMap[2] = roadStruct{time.Second * 2, 1}
-	outRoadMap[3] = roadStruct{time.Hour, 1}
-	outRoadMap[4] = roadStruct{time.Second * 4, 10}
+	outRoadMap[1] = roadStruct{time.Second * 2, rand.Intn(6), make(chan carStruct, 8)}
+	outRoadMap[2] = roadStruct{time.Second * 2, 1, make(chan carStruct, 8)}
+	outRoadMap[3] = roadStruct{time.Hour, 1, make(chan carStruct, 8)}
+	outRoadMap[4] = roadStruct{time.Second * 4, 10, make(chan carStruct, 8)}
 
 	for road, config := range inRoadMap {
-		go inRoad(ctx, circleIn, config, road)
+		go inRoad(ctx, config, road)
 	}
 	for road, config := range outRoadMap {
-		go outRoad(ctx, circleOut, config, road)
+		go outRoad(ctx, config, road)
 	}
-	go trafficCircle(ctx, circleIn, circleOut)
+	go trafficCircle(ctx, circleIn, outRoadMap)
 	time.Sleep(time.Second * 30)
 	cancel()
 }
 
-func inRoad(ctx context.Context, circleIn chan<- carStruct, rDesc roadStruct, roadNum int) {
+func inRoad(ctx context.Context, rDesc roadStruct, roadNum int) {
 	//send cars to trafficCircle
-	for {
+	ticker := time.NewTicker(rDesc.sleepDuration / time.Duration(rDesc.carNum))
+	defer ticker.Stop()
+
+	for j := 0; ; j++ {
 		select {
 		case <-ctx.Done():
+			log.Infoln("InRoad got Context done, closing itself")
 			return
-		default:
-			for j := 0; j < rDesc.carNum; j++ {
-				carID := fmt.Sprintf("Car#%d from road #%d\n", j, roadNum)
-				newCar := carStruct{carID, time.Now()}
-				circleIn <- newCar
-				log.Infoln(carID)
-			}
-			log.Infof("Road with number %d will be sleeping for %d \n", roadNum, rDesc.sleepDuration)
-			time.Sleep(rDesc.sleepDuration)
+		case <-ticker.C:
+			carID := fmt.Sprintf("Car#%d from road #%d\n", j, roadNum)
+			newCar := carStruct{carID, roadNum, (rand.Intn(4) + 1)}
+			rDesc.roadCh <- newCar
+			log.Infoln(carID, "was generated and put in the circle")
 		}
 	}
 
 }
 
+func waitingCircle(ctx context.Context, car carStruct, sleep time.Duration, circleOut chan carStruct) {
+	log.Infoln("car on waiting circle, sleep for ", sleep, "Car desc : ", car.id)
+	time.Sleep(sleep)
+	select {
+	case <-ctx.Done():
+		return
+	case circleOut <- car:
+		log.Infoln("Car driving to the out road")
+		return
+	}
+}
+
 // TrafficCircle describe a circle
-func trafficCircle(ctx context.Context, circleIn chan carStruct, circleOut chan carStruct) {
+func trafficCircle(ctx context.Context, circleIn chan carStruct, circleOut map[int]roadStruct) {
 LoopLabel:
 	for {
 		select {
@@ -83,25 +98,18 @@ LoopLabel:
 			if !ok {
 				break LoopLabel
 			}
-			// circleOut <- car
-			log.Info(len(circleIn))
-			if time.Since(car.onCircleTime) > time.Second {
-				log.Info("took car from")
-				circleOut <- car
-			} else {
-				log.Info("Car is back in channel")
-				// we will be blocked over here
-				// the problem is
-				// we take from channel and while we are checking a time for the machine
-				// another goroutine will put some data into our channel and we will be blocked
-				circleIn <- car
-				log.Info("we wont get here")
-			}
+			log.Infoln(len(circleIn))
+			log.Info("traffic circle took car for sleeping", car.id)
+			//!!!!!!need to be improved
+			sleep := time.Second * time.Duration(math.Abs(float64(car.departure-car.destination)))
+
+			go waitingCircle(ctx, car, sleep, circleOut[car.destination].roadCh)
+
 		}
 	}
 }
 
-func outRoad(ctx context.Context, circleOut <-chan carStruct, rDesc roadStruct, roadNum int) {
+func outRoad(ctx context.Context, rDesc roadStruct, roadNum int) {
 	//get data from trafficCircle
 	for {
 		select {
@@ -109,9 +117,8 @@ func outRoad(ctx context.Context, circleOut <-chan carStruct, rDesc roadStruct, 
 			return
 		default:
 			for i := 0; i < rDesc.carNum; i++ {
-				log.Info("trying to take a car")
-				car := <-circleOut
-				log.Info("We took out off road ", car.id)
+				car := <-rDesc.roadCh
+				log.Info("We took something out off road ", car.id)
 			}
 			time.Sleep(rDesc.sleepDuration)
 		}
