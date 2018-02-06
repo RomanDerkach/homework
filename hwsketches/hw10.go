@@ -23,6 +23,8 @@ type roadStruct struct {
 }
 
 func main() {
+	rand.Seed(time.Now().Unix())
+
 	log.SetFormatter(&log.TextFormatter{})
 
 	inRoadMap := make(map[int]roadStruct)
@@ -47,8 +49,8 @@ func main() {
 	for road, config := range inRoadMap {
 		go inRoad(ctx, config, road)
 	}
-	for road, config := range outRoadMap {
-		go outRoad(ctx, config, road)
+	for _, config := range outRoadMap {
+		go outRoad(ctx, config)
 	}
 	go trafficCircle(ctx, circleIn, outRoadMap)
 	time.Sleep(time.Second * 30)
@@ -63,28 +65,34 @@ func inRoad(ctx context.Context, rDesc roadStruct, roadNum int) {
 	for j := 0; ; j++ {
 		select {
 		case <-ctx.Done():
-			log.Infoln("InRoad got Context done, closing itself")
+			log.Info("InRoad got Context done, closing itself")
 			return
 		case <-ticker.C:
-			carID := fmt.Sprintf("Car#%d from road #%d\n", j, roadNum)
-			newCar := carStruct{carID, roadNum, (rand.Intn(4) + 1)}
+			carID := fmt.Sprintf("Car#%d from road #%d ", j, roadNum)
+			newCar := carStruct{carID, roadNum, rand.Intn(4) + 1}
 			rDesc.roadCh <- newCar
-			log.Infoln(carID, "was generated and put in the circle")
+			log.Info(carID, "was generated and put in the circle")
 		}
 	}
 
 }
 
-func waitingCircle(ctx context.Context, car carStruct, sleep time.Duration, circleOut chan carStruct) {
-	log.Infoln("car on waiting circle, sleep for ", sleep, "Car desc : ", car.id)
-	time.Sleep(sleep)
+func waitingCircle(ctx context.Context, car carStruct, circleOut chan carStruct) {
+	// TODO: Calcularity!!11
+	sleep := time.Second * time.Duration(math.Abs(float64(car.departure-car.destination)))
+
+	log.Info("car on waiting circle, sleep for ", sleep, "Car desc : ", car.id)
+	ticker := time.NewTicker(sleep)
+	defer ticker.Stop()
+
 	select {
 	case <-ctx.Done():
-		return
-	case circleOut <- car:
-		log.Infoln("Car driving to the out road")
-		return
+	case <-ticker.C:
+		circleOut <- car
+		log.Info("Car driving to the out road")
 	}
+
+	return
 }
 
 // TrafficCircle describe a circle
@@ -98,18 +106,17 @@ LoopLabel:
 			if !ok {
 				break LoopLabel
 			}
-			log.Infoln(len(circleIn))
+			log.Info(len(circleIn))
 			log.Info("traffic circle took car for sleeping", car.id)
 			//!!!!!!need to be improved
-			sleep := time.Second * time.Duration(math.Abs(float64(car.departure-car.destination)))
 
-			go waitingCircle(ctx, car, sleep, circleOut[car.destination].roadCh)
-
+			go waitingCircle(ctx, car, circleOut[car.destination].roadCh)
 		}
 	}
 }
 
-func outRoad(ctx context.Context, rDesc roadStruct, roadNum int) {
+func outRoad(ctx context.Context, rDesc roadStruct) {
+	// TODO: Ticker
 	//get data from trafficCircle
 	for {
 		select {
