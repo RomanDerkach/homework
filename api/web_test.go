@@ -2,20 +2,15 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http/httptest"
 	"testing"
 
 	"bytes"
 
 	"github.com/RomanDerkach/homework/storage"
-	"github.com/pkg/profile"
 )
 
 func BenchmarkFilterBooks(b *testing.B) {
-	fmt.Println("SHITTTTT")
-	fmt.Println(b.N)
-	defer profile.Start(profile.CPUProfile).Stop()
 	store, err := storage.NewJSONStorage("test_data/test_storage.json")
 	if err != nil {
 		b.Fatal("cant create storage")
